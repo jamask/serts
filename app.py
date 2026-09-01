@@ -442,7 +442,7 @@ MANAGED_ACL_FILES = {
 PERMANENT_LEVEL4 = [
     "10.238.0.0/16",
     "10.218.0.0/16",
-    "172.0.0.0/8",
+    "172.16.0.0/12",
 ]
 
 def generate_acl_files():
@@ -637,7 +637,25 @@ def get_squid_logs():
 
         size = "Unknown"
 
-        if "LOG_SIZE:\n" in output:
+        # ----------------------------------------------------
+        # LOG SIZE
+        # ----------------------------------------------------
+
+        if "LOG_SIZE=" in output:
+
+            for line in output.splitlines():
+
+                if line.startswith("LOG_SIZE="):
+
+                    size = line.split(
+                        "=",
+                        1
+                    )[1].strip()
+
+                    break
+
+        elif "LOG_SIZE:\n" in output:
+
             part = output.split(
                 "LOG_SIZE:\n",
                 1
@@ -645,9 +663,21 @@ def get_squid_logs():
 
             size = part.splitlines()[0].strip()
 
+        # ----------------------------------------------------
+        # ACCESS LOG
+        # ----------------------------------------------------
+
         log_data = ""
 
-        if "ACCESS_LOG:\n" in output:
+        if "---LOG---" in output:
+
+            log_data = output.split(
+                "---LOG---",
+                1
+            )[1]
+
+        elif "ACCESS_LOG:\n" in output:
+
             log_data = output.split(
                 "ACCESS_LOG:\n",
                 1
@@ -691,20 +721,96 @@ def parse_squid_log_line(line):
 
         dt = datetime.fromtimestamp(timestamp)
 
+        status = parts[3]
+
+        # ----------------------------------------------------
+        # RESULT
+        # ----------------------------------------------------
+
+        if "TCP_DENIED" in status:
+
+            result = "denied"
+
+        elif "/503" in status:
+
+            result = "error"
+
+        elif "/4" in status or "/5" in status:
+
+            result = "error"
+
+        else:
+
+            result = "allowed"
+
+        # ----------------------------------------------------
+        # HTTP STATUS CODE
+        # ----------------------------------------------------
+
+        http_status = ""
+
+        if "/" in status:
+
+            try:
+
+                http_status = status.split(
+                    "/",
+                    1
+                )[1]
+
+            except Exception:
+
+                http_status = ""
+
+        # ----------------------------------------------------
+        # URL / DOMAIN
+        # ----------------------------------------------------
+
+        url = parts[6]
+
+        # ----------------------------------------------------
+        # RETURN
+        # ----------------------------------------------------
+
         return {
-            "time": dt.strftime("%Y-%m-%d %H:%M:%S"),
+
+            "time": dt.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+
             "elapsed": parts[1],
+
             "client": parts[2],
-            "status": parts[3],
+
+            "status": status,
+
+            "http_status": http_status,
+
+            "result": result,
+
             "size": parts[4],
+
             "method": parts[5],
-            "url": parts[6],
-            "hierarchy": parts[7] if len(parts) > 7 else "",
-            "type": parts[8] if len(parts) > 8 else "",
+
+            "url": url,
+
+            "hierarchy": (
+                parts[7]
+                if len(parts) > 7
+                else ""
+            ),
+
+            "type": (
+                parts[8]
+                if len(parts) > 8
+                else ""
+            ),
+
             "raw": line
         }
 
     except Exception:
+
         return None
 
 
@@ -716,27 +822,65 @@ def logs():
         "all"
     )
 
+    # --------------------------------------------------------
+    # VALID FILTER
+    # --------------------------------------------------------
+
+    if filter_value not in (
+        "all",
+        "allowed",
+        "denied",
+        "error"
+    ):
+
+        filter_value = "all"
+
+    # --------------------------------------------------------
+    # SEARCH
+    # --------------------------------------------------------
+
     search = request.args.get(
         "search",
         ""
     ).strip().lower()
 
+    # --------------------------------------------------------
+    # LIMIT
+    # --------------------------------------------------------
+
     try:
+
         limit = int(
             request.args.get(
                 "limit",
                 "100"
             )
         )
+
     except ValueError:
+
         limit = 100
 
-    if limit not in [50, 100, 250, 500]:
+    if limit not in (
+        50,
+        100,
+        250,
+        500
+    ):
+
         limit = 100
+
+    # --------------------------------------------------------
+    # READ LOG
+    # --------------------------------------------------------
 
     data = get_squid_logs()
 
     entries = []
+
+    # --------------------------------------------------------
+    # PARSE + FILTER
+    # --------------------------------------------------------
 
     for line in data["lines"]:
 
@@ -745,15 +889,28 @@ def logs():
         if not entry:
             continue
 
-        status = entry["status"]
+        # ----------------------------------------------------
+        # RESULT FILTER
+        # ----------------------------------------------------
 
         if filter_value == "allowed":
-            if "TCP_DENIED" in status:
+
+            if entry["result"] != "allowed":
                 continue
 
         elif filter_value == "denied":
-            if "TCP_DENIED" not in status:
+
+            if entry["result"] != "denied":
                 continue
+
+        elif filter_value == "error":
+
+            if entry["result"] != "error":
+                continue
+
+        # ----------------------------------------------------
+        # SEARCH
+        # ----------------------------------------------------
 
         if search:
 
@@ -763,6 +920,10 @@ def logs():
                 + entry["url"]
                 + " "
                 + entry["method"]
+                + " "
+                + entry["status"]
+                + " "
+                + entry["type"]
             ).lower()
 
             if search not in searchable:
@@ -770,16 +931,60 @@ def logs():
 
         entries.append(entry)
 
+    # --------------------------------------------------------
+    # LAST N RECORDS
+    # --------------------------------------------------------
+
     entries = entries[-limit:]
 
+    # --------------------------------------------------------
+    # STATISTICS
+    # --------------------------------------------------------
+
+    allowed_count = 0
+    denied_count = 0
+    error_count = 0
+
+    for entry in entries:
+
+        if entry["result"] == "allowed":
+
+            allowed_count += 1
+
+        elif entry["result"] == "denied":
+
+            denied_count += 1
+
+        elif entry["result"] == "error":
+
+            error_count += 1
+
+    # --------------------------------------------------------
+    # PAGE
+    # --------------------------------------------------------
+
     return render_template(
+
         "logs.html",
+
         logs=entries,
+
         log_size=data["size"],
+
         error=data["error"],
+
         filter_value=filter_value,
+
         search=search,
+
         limit=limit,
+
+        allowed_count=allowed_count,
+
+        denied_count=denied_count,
+
+        error_count=error_count,
+
         pending_count=(
             pending_changes_count()
             + pending_website_changes_count()
