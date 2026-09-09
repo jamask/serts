@@ -1,0 +1,991 @@
+Привет. Ты знаешь большую часть моей инфраструктуры, какие ещё функции можно добавить в телеграм бот
+
+Привет! Да, с твоей инфраструктурой Telegram-бот можно превратить практически в единый пульт администратора. У тебя уже есть хорошая база: Proxmox, AD/DNS, Squid, MeshCentral, Samba, WhatsApp-бот и сервисы Linux.
+
+Я бы развивал его не просто в сторону «выполнить команду на сервере», а в сторону мониторинга + быстрых админских действий + уведомлений.
+
+🚨 1. Мониторинг — самое полезное
+
+Бот может сам присылать сообщения при событиях:
+
+🔴 диск > 90%
+🔴 закончилась inode
+🔴 RAM > 90%
+🔴 CPU > 90% в течение N минут
+🔴 сервер недоступен
+🔴 пропал сетевой интерфейс
+🔴 сервис systemd упал
+🔴 Proxmox VM/LXC остановилась
+🔴 высокая температура
+🔴 SMART предупреждение
+🔴 RAID degraded
+🔴 Samba перестала отвечать
+🔴 Squid остановился
+🔴 Technitium DNS не отвечает
+🔴 MeshCentral недоступен
+
+Причём я бы сделал не просто:
+
+🔴 Disk full
+
+а нормально:
+
+🔴 FS01 — проблема с диском
+/data — 94%
+Свободно: 58 GB
+Рост за сутки: +17 GB
+
+[📊 Подробнее] [🧹 Найти большие файлы]
+
+🖥 2. Состояние всей инфраструктуры
+
+Команда:
+
+/status
+
+Например:
+
+🟢 ИНФРАСТРУКТУРА
+
+Proxmox
+🟢 Host        2% CPU / 8.1 GB RAM
+🟢 DC1
+🟢 DC2
+🟢 DNS01
+🟢 Proxy
+🟢 FS
+🟢 MeshCentral
+
+Сервисы
+🟢 Technitium
+🟢 Squid
+🟢 Samba
+🟢 MeshCentral
+🟢 WhatsApp Bot
+🟢 Telegram Bot
+
+Последняя проверка: 00:02:41
+
+И кнопка:
+
+🔄 Обновить
+
+🖥 3. Proxmox
+
+Учитывая твою инфраструктуру, это вообще просится в бот.
+
+Например:
+
+/pve
+
+Показать:
+
+CPU
+RAM
+storage
+uptime
+VM/LXC
+состояние каждой VM/LXC
+🖥 PROXMOX
+
+CPU: 12%
+RAM: 10.4 / 16 GB
+
+VM:
+🟢 DC1       8 GB
+🟢 DC2       4 GB
+
+LXC:
+🟢 DNS01     2 GB
+🟢 Proxy     1 GB
+🟢 Mesh      4 GB
+🟢 WA Bot    1 GB
+🟢 TG Bot    512 MB
+
+А дальше кнопки:
+
+VM/LXC → Restart / Shutdown / Status
+
+Разумеется, опасные операции я бы разрешил только админам.
+
+🌐 4. DNS / Technitium
+
+У тебя здесь особенно много интересных возможностей.
+
+Например:
+
+/dns
+
+Показать:
+
+🌐 DNS01
+
+🟢 Technitium
+Queries/min: 124
+Cache: 1834
+Blocked: 27
+
+DNS servers:
+🟢 10.115.0.40
+🟢 10.238.35.40
+🟢 172.16.88.40
+🟢 192.168.102.40
+
+И отдельные команды:
+
+/dnscheck domain.com
+
+Бот проверяет:
+
+DNS resolution
+какой сервер ответил
+какой IP
+время ответа
+NXDOMAIN/SERVFAIL
+ответы разных подсетей.
+
+Очень удобно именно для твоей split-DNS схемы.
+
+🛡 5. Squid
+
+Тут вообще можно сделать полноценную панель управления.
+
+Например:
+
+/proxy
+
+🛡 SQUID
+
+🟢 Service: active
+👥 Active clients: 43
+📊 Traffic: 1.8 GB/h
+
+Levels:
+🟢 Level 1: 12
+🟡 Level 2: 8
+🔵 Level 3: 15
+⚪ Level 4: 8
+
+И:
+
+👥 Клиенты
+
+→ выбрать компьютер
+→ изменить уровень
+→ применить конфигурацию.
+
+Плюс:
+
+🔍 Кто сейчас использует proxy
+
+📈 Top clients
+
+🌐 Top domains
+
+🚫 Top blocked domains
+
+Это очень хорошо сочетается с твоей существующей Squid GUI.
+
+🖥️ 6. MeshCentral
+
+Можно связать Telegram с MeshCentral.
+
+Например:
+
+/mesh
+
+🖥 MESHCENTRAL
+
+Agents: 742
+Online: 518
+Offline: 224
+
+⚠️ 7 agents haven't connected > 24h
+
+И:
+
+/mesh PC-NAME
+
+получать:
+
+IP
+hostname
+OS
+uptime
+last seen
+online/offline
+Mesh agent version.
+
+А самое интересное — уведомления:
+
+🟢 PC-0231 появился online
+
+или
+
+🔴 PC-0231 offline
+Последний контакт: 2 часа 17 минут назад
+
+💻 7. Управление Windows
+
+Через MeshCentral можно сделать быстрые административные действия:
+
+перезагрузка
+shutdown
+запуск команды
+получение информации
+проверка службы
+проверка свободного места
+установка/обновление MeshAgent.
+
+Например:
+
+/pc PC-0231
+
+🖥 PC-0231
+
+IP: 10.238.35.124
+OS: Windows 11
+Uptime: 3d 14h
+Disk C: 72%
+RAM: 61%
+MeshAgent: 1.2.5
+
+[🔄 Restart]
+[📊 Details]
+[⚙ Services]
+[💻 Console]
+📁 8. Samba / файловый сервер
+
+Для твоего FS:
+
+/fs
+
+📁 FILE SERVER
+
+/data       72%
+/data/share 68%
+/data/scan  41%
+
+RAM: 2.8 GB
+IO wait: 3%
+
+Samba: 🟢
+
+И очень полезная функция:
+
+🔍 Найти большие файлы
+
+Например:
+
+/data/shared
+Top 10 files:
+
+18.4 GB — backup.iso
+11.2 GB — video.mkv
+8.7 GB — archive.zip
+
+Это может сильно помочь при проблемах с заполнением диска.
+
+🔐 9. AD
+
+Можно добавить:
+
+/ad
+
+Проверять:
+
+DC1/DC2 доступность
+LDAP
+Kerberos
+DNS
+replication
+SYSVOL
+состояние служб.
+
+Например:
+
+🏢 ACTIVE DIRECTORY
+
+DC1 🟢
+DC2 🟢
+
+Replication:
+🟢 DC1 → DC2
+🟢 DC2 → DC1
+
+DNS: 🟢
+LDAP: 🟢
+Kerberos: 🟢
+SYSVOL: 🟢
+
+И отдельная команда:
+
+/aduser username
+
+показать:
+
+существует ли пользователь
+enabled/disabled
+группы
+дата последнего входа
+пароль истекает/нет.
+📡 10. Проверка сетевой связности
+
+Для твоей сети это будет особенно полезно.
+
+Например:
+
+/ping
+
+🌐 NETWORK
+
+10.115.0.1       🟢 1 ms
+10.115.0.99      🟢 2 ms
+10.238.35.1      🟢 1 ms
+10.238.35.99     🟢 2 ms
+172.16.88.1      🟢 1 ms
+172.16.88.99     🟢 1 ms
+192.168.102.1    🟢 2 ms
+192.168.102.99   🔴 timeout
+
+Ещё интереснее — проверка портов:
+
+DC1
+
+53  DNS       🟢
+88  Kerberos  🟢
+135 RPC       🟢
+389 LDAP      🟢
+445 SMB       🔴
+📋 11. Логи
+
+Например:
+
+/logs squid
+
+или кнопками:
+
+📋 Logs
+
+→ Squid
+→ Samba
+→ DNS
+→ MeshCentral
+→ Telegram Bot
+→ systemd
+
+Причём бот может отправлять последние 20/50 строк.
+
+🔄 12. Управление systemd
+
+Очень простая, но полезная вещь:
+
+/service
+
+→ выбрать сервер
+→ выбрать сервис
+
+squid.service
+
+Status: 🟢 active
+PID: 1832
+Memory: 182 MB
+CPU: 2.1%
+
+[Restart]
+[Stop]
+[Logs]
+
+И автоматическое уведомление:
+
+🔴 squid.service stopped on proxy01
+00:13:27
+
+📊 13. Ежедневный отчёт
+
+Я бы обязательно сделал.
+
+Например каждый день в 09:00:
+
+📊 DAILY INFRASTRUCTURE REPORT
+
+🟢 Servers: 12/12
+🟢 Services: 37/37
+
+CPU average: 18%
+RAM average: 61%
+
+💾 Storage
+FS: 72%
+Proxmox: 63%
+DNS: 41%
+
+🖥 MeshCentral
+742 agents
+518 online
+
+🛡 Squid
+43 active clients
+1.8 GB traffic
+
+⚠️ Warnings: 2
+🚨 14. Централизованный Alert Manager
+
+Это я бы сделал центральной функцией бота.
+
+Все твои серверы отправляют события в Telegram-бот:
+
+Proxmox ──────┐
+Squid ────────┤
+Samba ────────┤
+Technitium ───┼──→ Telegram Bot → 👨‍💻
+MeshCentral ──┤
+AD ───────────┤
+Linux ────────┘
+
+И бот сам решает:
+
+WARNING → сообщение
+CRITICAL → сообщение + повтор через 10 минут
+RECOVERED → сообщение о восстановлении.
+
+Например:
+
+🔴 CRITICAL
+
+fs.pdg.loc
+
+/data = 95%
+
+Свободно: 47 GB
+
+Начало: 09.09 23:41
+
+А потом:
+
+🟢 RECOVERED
+
+fs.pdg.loc
+
+/data = 81%
+
+🔥 А если расставить приоритеты
+
+Я бы для твоей инфраструктуры делал так:
+
+Приоритет	Функция
+⭐⭐⭐⭐⭐	Мониторинг серверов
+⭐⭐⭐⭐⭐	Уведомления о проблемах
+⭐⭐⭐⭐⭐	systemd/service monitoring
+⭐⭐⭐⭐⭐	Disk/RAM/CPU
+⭐⭐⭐⭐	Proxmox
+⭐⭐⭐⭐	MeshCentral
+⭐⭐⭐⭐	Squid
+⭐⭐⭐⭐	DNS
+⭐⭐⭐	AD
+⭐⭐⭐	Samba
+⭐⭐⭐	Network checks
+⭐⭐	Логи
+⭐⭐	Ежедневный отчёт
+⭐	Опасные команды shutdown/restart
+
+И главное — я бы не превращал Telegram-бота в огромный монолит. Лучше сделать его как диспетчер:
+
+telegram-bot/
+├── bot/
+│   ├── commands.py
+│   ├── callbacks.py
+│   └── permissions.py
+│
+├── monitoring/
+│   ├── servers.py
+│   ├── services.py
+│   ├── disks.py
+│   └── network.py
+│
+├── integrations/
+│   ├── proxmox.py
+│   ├── technitium.py
+│   ├── squid.py
+│   ├── meshcentral.py
+│   ├── active_directory.py
+│   └── samba.py
+│
+├── alerts/
+│   ├── manager.py
+│   └── telegram.py
+│
+└── config.py
+
+Тогда добавление новой функции не будет ломать существующего бота.
+
+Из всего списка я бы следующим этапом сделал единый /status + мониторинг systemd/disk/RAM/CPU + автоматические Telegram alerts. Это даст максимальную пользу сразу и хорошо ляжет на ту систему мониторинга, которую мы уже обсуждали для Termix.
+
+Uploaded a file
+это фронт мы его с тобой доделывали, сейчас скину бэк, он еще не большой
+
+Да, вижу. Это именно front Telegram-часть, и теперь хорошо понятна текущая архитектура.
+
+У тебя сейчас уже есть хорошая основа:
+
+авторизация через ALLOWED_USERS;
+PostgreSQL scan;
+получение свободных IP из devices;
+меню выбора подсети через inline-кнопки;
+/getips;
+/checkips;
+ручной ping <IP>;
+список серверов в ipList;
+единая обработка неизвестных команд.
+
+Особенно важно, что меню уже построено через Markup.inlineKeyboard — поэтому расширить его до полноценного административного меню будет достаточно удобно.
+
+Я бы пока не стал менять этот front. Сначала посмотрим back, потому что от него будет зависеть, как правильно построить мониторинг и где выполнять проверки.
+
+Скидывай back. После этого я соберу общую картину и предложу конкретную структуру нового меню, например:
+
+🏠 Главное меню
+
+📡 Сеть
+   ├─ 🔍 Свободные IP
+   ├─ 📡 Проверить IP
+   └─ 🌐 Проверить подсеть
+
+🖥 Серверы
+   ├─ 📊 Общий статус
+   ├─ 💾 Диски
+   ├─ 🧠 RAM / CPU
+   └─ ⚙ Сервисы
+
+🏢 Инфраструктура
+   ├─ 🖥 Proxmox
+   ├─ 🌐 DNS
+   ├─ 🛡 Squid
+   ├─ 📁 Samba
+   └─ 🖥 MeshCentral
+
+🚨 Мониторинг
+   ├─ 📋 Текущие проблемы
+   ├─ 🔔 Настройки уведомлений
+   └─ 📊 История событий
+
+Но окончательную схему лучше сделать после просмотра back, чтобы не придумать архитектуру, которая потом будет неудобна для твоего текущего сканера и БД.
+
+const arp = require('node-arp');
+const { Client } = require('pg');
+const { exec } = require('child_process');
+const schedule = require('node-schedule');
+//const arp =  require('@network-utils/arp-lookup');
+
+// Подключаемся к базе данных PostgreSQL
+const client = new Client({
+    user: 'postgres',
+    host: 'localhost',
+    database: 'scan',
+    password: '*',
+    port: 5432,
+});
+
+client.connect();
+
+const fiveMinutesInMilliseconds = 5 * 60 * 1000;
+
+// Создаем таблицу для хранения IP, MAC-адресов и имен узлов, если она не существует
+client.query(
+    CREATE TABLE IF NOT EXISTS devices (
+        id SERIAL PRIMARY KEY,
+        ip VARCHAR(15) NOT NULL,
+        mac VARCHAR(17) NOT NULL,
+        hostname VARCHAR(255),
+        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+, (err, res) => {
+    if (err) {
+        console.error(err);
+    } else {
+        console.log('Table is ready');
+    }
+});
+
+// Функция для сканирования сети
+//function scanNetwork(ipRange) {
+//    return new Promise((resolve, reject) => {
+//        exec(nmap -sn -PR -n ${ipRange}, (error, stdout, stderr) => {
+//           if (error) {
+//                reject(Error: ${stderr});
+//            } else {
+//                const ipAddresses = stdout.match(/\d+\.\d+\.\d+\.\d+/g);
+//                resolve(ipAddresses);
+//            }
+//        });
+//    });
+//}
+function scanNetwork(ipRange) {
+    return new Promise((resolve, reject) => {
+
+        exec(nmap -sn -n ${ipRange}, (error, stdout, stderr) => {
+            if (error) {
+                return reject(stderr);
+            }
+
+            const lines = stdout.split('\n');
+            const ips = [];
+
+            for (const line of lines) {
+
+                if (line.includes('Nmap scan report')) {
+
+                    const match = line.match(/\d+\.\d+\.\d+\.\d+/);
+                    if (match) {
+                        ips.push(match[0]);
+                    }
+                }
+            }
+
+            resolve([...new Set(ips)]);
+        });
+
+    });
+}
+
+
+// Функция для получения MAC-адреса по IP-адресу
+function getMacAddress(ip) {
+    return new Promise((resolve, reject) => {
+        arp.getMAC(ip, (err, mac) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(mac);
+            }
+        });
+    });
+}
+
+// Функция для получения имени узла по IP-адресу
+function getHostname(ip) {
+    return new Promise((resolve, reject) => {
+        exec(nslookup ${ip}, (error, stdout, stderr) => {
+            if (error) {
+                reject(Error: ${stderr});
+            } else {
+                const matches = stdout.match(/name = (.*)\./);
+                const hostname = matches ? matches[1] : 'Unknown';
+                resolve(hostname);
+            }
+        });
+    });
+}
+
+// Функция для обновления базы данных
+async function updateDatabase(ipAddresses) {
+    for (const ip of ipAddresses) {
+        try {
+            const mac = 0; //await getMacAddress(ip);
+            const hostname = 0; //await getHostname(ip);
+            await client.query(
+                INSERT INTO devices (ip, mac, hostname, last_seen)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (ip) DO UPDATE SET
+                mac = EXCLUDED.mac,
+                hostname = EXCLUDED.hostname,
+                last_seen = CURRENT_TIMESTAMP
+            , [ip, mac, hostname]);
+        } catch (err) {
+            console.error(Could not get MAC or hostname for IP ${ip}: ${err});
+        }
+    }
+}
+
+// Функция для удаления записей старше 7 дней
+async function deleteOldRecords() {
+    try {
+        await client.query(
+            DELETE FROM devices
+            WHERE last_seen < NOW() - INTERVAL '35 days'
+        );
+        console.log('Old records deleted');
+    } catch (err) {
+        console.error('Error deleting old records: ', err);
+    }
+}
+
+// Функция для вывода результата
+async function printResult(ipAddresses) {
+    console.log("IP\t\t\tMAC Address\t\tHostname\n----------------------------------------------------------");
+    for (const ip of ipAddresses) {
+        try {
+            const mac = 0; // await arp.toMAC(ip);
+            const hostname = 0; // await getHostname(ip);
+            console.log(${ip}\t\t${mac}\t\t${hostname});
+        } catch (err) {
+            console.error(Could not get MAC or hostname for IP ${ip}: ${err});
+        }
+    }
+}
+
+// Основная функция
+async function main() {
+    const ipRange = "10.115.0.0/24 172.16.88.0/24 10.238.35.0/24 192.168.102.0/24";
+    try {
+        console.log("Scanning network...");
+        const ipAddresses = await scanNetwork(ipRange);
+//        console.log(ipAddresses);
+        await updateDatabase(ipAddresses);
+	await deleteOldRecords(); // Удаляем старые записи
+        //printResult(ipAddresses);
+       console.log('Updated, ', new Date().toLocaleString())
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Запускаем сканирование сети каждые 60 секунд
+//schedule.scheduleJob('*/5 * * * *', main);
+setInterval(main, fiveMinutesInMilliseconds);
+
+// Закрываем соединение с базой данных при завершении процесса
+process.on('exit', () => {
+    client.end();
+});
+
+бэк скрипт
+
+Отлично, теперь картина практически полная. Бэк действительно небольшой, и это даже хорошо — его можно расширить без сильной переделки.
+
+Я вижу такую текущую схему:
+
+                    ┌──────────────┐
+                    │   Nmap       │
+                    │ 4 подсети    │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   Backend    │
+                    │ scan каждые 5м│
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │ PostgreSQL   │
+                    │   devices    │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │ Telegram     │
+                    │    Front     │
+                    └──────────────┘
+
+И здесь есть важный момент: я бы не смешивал сканер IP с будущим мониторингом серверов.
+
+Что оставить как есть
+
+Текущий backend пусть продолжает заниматься исключительно:
+
+«Какие IP сейчас заняты?»
+
+Он сканирует:
+
+10.115.0.0/24
+172.16.88.0/24
+10.238.35.0/24
+192.168.102.0/24
+
+и пишет результат в devices.
+
+Telegram frontend использует эту информацию для поиска свободных адресов. Эта часть уже работает и её лучше не ломать.
+
+Что добавить отдельно
+
+Для нового функционала я бы сделал третий логический модуль — monitoring:
+
+                    Telegram Bot
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+          IP Scanner             Monitor
+              │                     │
+              ▼                     ▼
+          PostgreSQL          серверы / сервисы
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                    Telegram
+                      alerts
+
+То есть текущий back не превращаем в монстра.
+
+Первый шаг я предлагаю сделать таким
+
+Создать отдельный конфиг мониторинга, например:
+
+const servers = [
+    {
+        name: 'Proxy',
+        host: '172.16.88.254',
+        services: ['squid']
+    },
+    {
+        name: 'Proxy2',
+        host: '10.238.40.100',
+        services: ['squid']
+    },
+    {
+        name: 'Proxy3',
+        host: '10.238.35.100',
+        services: ['squid']
+    }
+];
+
+Но тут есть важный архитектурный вопрос.
+
+Telegram-бот не должен напрямую SSH'иться во все серверы только ради мониторинга. Для твоей инфраструктуры гораздо правильнее сделать маленький monitoring agent/backend на Linux-серверах, а Telegram-бот будет получать результаты.
+
+Например:
+
+proxy ───────┐
+fs ──────────┤
+dns ─────────┤
+mesh ────────┤
+proxmox ─────┼──→ Monitoring API ──→ Telegram
+dc1/dc2 ─────┘
+
+Однако для первой версии можно сделать проще.
+
+V1
+
+Telegram backend сам проверяет:
+
+ping
+TCP-порты
+доступность сервисов через HTTP
+CPU/RAM/disk там, где это возможно.
+
+А затем уже V2 сделать полноценный агент.
+
+И ещё я бы немного изменил само Telegram-меню
+
+Сейчас у тебя фактически команды:
+
+/getips
+/checkips
+ping 10.x.x.x
+
+Предлагаю перейти к главному меню:
+
+🏠 Главное меню
+
+┌─────────────────────────┐
+│ 📡 Сеть                │
+│ 🖥 Серверы              │
+├─────────────────────────┤
+│ 🚨 Мониторинг           │
+│ 📊 Статистика           │
+├─────────────────────────┤
+│ ⚙️ Администрирование    │
+└─────────────────────────┘
+
+А внутри:
+
+📡 Сеть
+
+📡 Сеть
+
+🟢 Свободные IP
+🔍 Проверить IP
+📋 Состояние подсетей
+
+🖥 Серверы
+
+🖥 Серверы
+
+📊 Общий статус
+💾 Диски
+🧠 CPU / RAM
+⚙️ Сервисы
+
+🚨 Мониторинг
+
+🚨 Мониторинг
+
+🔴 Текущие проблемы
+📜 История событий
+🔔 Настройки уведомлений
+И самое важное
+
+Я бы не начинал сразу с Proxmox, AD, MeshCentral и Squid.
+
+Сначала сделаем универсальный фундамент:
+
+/status → серверы → ping → CPU/RAM/disk → systemd → alerts.
+
+После этого уже подключаем:
+
+Proxmox → Technitium → Squid → Samba → MeshCentral → AD.
+
+Так получится единая система, а не набор отдельных костылей.
+
+Следующим шагом я предлагаю разобрать где физически сейчас запущены front и back, какая ОС, Node.js версия и как запускаются процессы (PM2/systemd). Это определит, куда лучше поставить monitoring и как сделать автоматические уведомления без изменения работающего сканера.
+
+Messages beyond this point are only visible to you
+
+1
+
+Понял — вариант 1: начинаем с универсального мониторинга.
+
+Тогда предлагаю сначала не трогать твой существующий сканер IP, а добавить мониторинг рядом с ним.
+
+Первый релиз сделаем таким:
+
+🚨 Мониторинг
+│
+├── 📊 Общий статус
+│
+├── 🖥 Серверы
+│   ├── Proxmox
+│   ├── DNS
+│   ├── Squid
+│   ├── Samba
+│   └── MeshCentral
+│
+├── ⚙️ Сервисы
+│
+├── 💾 Диски
+│
+└── 📜 Проблемы
+
+И автоматические уведомления:
+
+🔴 ПРОБЛЕМА
+
+Сервер: FS
+Проверка: /data
+Использование: 94%
+Свободно: 58 GB
+Время: 00:43
+
+После освобождения:
+
+🟢 ВОССТАНОВЛЕНО
+
+FS /data
+Использование: 78%
+Но сначала предлагаю сделать одну вещь
+
+Не хочу сейчас угадывать, на каком именно сервере у тебя запущены front/back и каким способом они стартуют. От этого зависит реализация.
+
+На сервере, где сейчас работает Telegram-бот, выполни:
+
+hostname
+cat /etc/os-release | head
+node -v
+npm -v
+ps aux | grep -E 'node|pm2' | grep -v grep
+systemctl list-units --type=service | grep -Ei 'telegram|bot|node'
+pm2 list 2>/dev/null
+
+И пришли вывод.
+
+После этого я дам тебе конкретную структуру мониторинга именно под твою текущую установку, а не абстрактный пример. Главное — существующий /getips, /checkips и сканирование подсетей не будем ломать.
